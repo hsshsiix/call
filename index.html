@@ -628,41 +628,24 @@ function initStudentMode() {
 // ============================================================
 
 function sendCall() {
-  const btn = document.getElementById('callBtn');
+  const iframe = document.createElement('iframe');
+  iframe.name = 'hiddenFrame';
+  iframe.style.display = 'none';
+  document.body.appendChild(iframe);
 
-  btn.disabled = true;
-  btn.querySelector('.call-btn-text').textContent = '전송 중...';
-  btn.querySelector('.call-btn-icon').textContent = '📡';
-  setStatus('studentStatus', 'waiting', '호출 신호 전송 중...');
-
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('ko-KR', {
-    hour: '2-digit', minute: '2-digit'
-  });
-
-  const message = `교무실 앞에서 호출합니다 (${timeStr})`;
-
-  // 🔥 핵심: form 방식 전송
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = `https://ntfy.sh/${topic}`;
+  form.target = 'hiddenFrame'; // 🔥 핵심
 
   const input = document.createElement('input');
   input.type = 'hidden';
   input.name = 'message';
-  input.value = message;
+  input.value = '호출!';
 
   form.appendChild(input);
   document.body.appendChild(form);
   form.submit();
-
-  setTimeout(() => {
-    btn.disabled = false;
-    btn.querySelector('.call-btn-icon').textContent = '📣';
-    btn.querySelector('.call-btn-text').textContent = '선생님 호출하기';
-    setStatus('studentStatus', 'connected', `✅ 호출 전송 완료! (${timeStr})`);
-    addHistoryItem(timeStr);
-  }, 1000);
 }
 
 // 호출 기록을 목록에 추가하는 함수
