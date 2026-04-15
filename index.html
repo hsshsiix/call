@@ -626,61 +626,42 @@ function initStudentMode() {
 // 학생 모드: 호출 버튼 클릭
 // - ntfy.sh에 POST 요청으로 메시지를 전송합니다
 // ============================================================
-async function sendCall() {
+  function sendCall() {
   const btn = document.getElementById('callBtn');
 
-  // --- 전송 시작: 버튼 비활성화 ---
   btn.disabled = true;
   btn.querySelector('.call-btn-text').textContent = '전송 중...';
   btn.querySelector('.call-btn-icon').textContent = '📡';
   setStatus('studentStatus', 'waiting', '호출 신호 전송 중...');
 
-  // 현재 시간 문자열 만들기
   const now = new Date();
   const timeStr = now.toLocaleTimeString('ko-KR', {
-    hour: '2-digit', minute: '2-digit', second: '2-digit'
+    hour: '2-digit', minute: '2-digit'
   });
+
   const message = `교무실 앞에서 호출합니다 (${timeStr})`;
 
-  try {
-    // -------------------------------------------------------
-    // ntfy.sh 서버에 메시지 전송 (POST 요청)
-    //
-    // ntfy.sh는 무료 알림 중계 서비스입니다.
-    // - URL: https://ntfy.sh/[채널이름]
-    // - 메시지를 보내면 같은 채널을 구독 중인 기기에 즉시 전달
-    // - 무료, 계정 불필요, 가입 불필요
-    // -------------------------------------------------------
-await fetch(`https://ntfy.sh/${topic}`, {
-  method: 'POST',
-  body: message,
-  mode: 'no-cors'
-});
+  // 🔥 핵심: form 방식 전송
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = `https://ntfy.sh/${topic}`;
 
-    // --- 전송 성공 ---
-    setStatus('studentStatus', 'connected', `✅ 호출 전송 완료! (${timeStr})`);
-    btn.querySelector('.call-btn-icon').textContent = '✅';
-    btn.querySelector('.call-btn-text').textContent = '호출 완료!';
+  const input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = 'message';
+  input.value = message;
 
-    // 호출 기록 추가
-    addHistoryItem(timeStr);
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
 
-    // 3초 후 버튼 원래 상태로 복구
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.querySelector('.call-btn-icon').textContent = '📣';
-      btn.querySelector('.call-btn-text').textContent = '선생님 호출하기';
-      setStatus('studentStatus', 'connected', `✅ 준비 완료 — 채널: ${topic}`);
-    }, 3000);
-
-  } catch (error) {
-    // --- 전송 실패 (네트워크 오류 등) ---
-    console.error('전송 실패:', error);
-    setStatus('studentStatus', 'disconnected', '❌ 전송 실패. 인터넷 연결을 확인해주세요.');
+  setTimeout(() => {
     btn.disabled = false;
     btn.querySelector('.call-btn-icon').textContent = '📣';
-    btn.querySelector('.call-btn-text').textContent = '다시 호출하기';
-  }
+    btn.querySelector('.call-btn-text').textContent = '선생님 호출하기';
+    setStatus('studentStatus', 'connected', `✅ 호출 전송 완료! (${timeStr})`);
+    addHistoryItem(timeStr);
+  }, 1000);
 }
 
 
