@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>교무실 호출 시스템</title>
+
+  <!-- Google Fonts: 깔끔한 한국어 폰트 -->
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       기본 초기화 & 전체 레이아웃
+    ============================================================ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --student-color: #16a34a;     /* 학생 모드 색 (초록) */
+      --teacher-color: #1d4ed8;     /* 교무실 모드 색 (파랑) */
+      --danger-color: #dc2626;      /* 호출 버튼 색 (빨강) */
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --radius: 16px;
+    }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    /* ============================================================
+       화면(Screen) 전환 시스템
+       - .screen 클래스를 가진 div가 각 화면입니다
+       - active 클래스가 있는 것만 보입니다
+    ============================================================ */
+    .screen {
+      display: none;          /* 기본적으로 숨김 */
+      width: 100%;
+      max-width: 480px;
+      animation: fadeIn 0.25s ease;
+    }
+    .screen.active {
+      display: block;         /* active 클래스가 있을 때만 보임 */
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ============================================================
+       공통 카드 스타일
+    ============================================================ */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 28px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    /* ============================================================
+       상단 헤더 (로고 + 제목)
+    ============================================================ */
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .header-icon {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+    .header p {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 4px;
+    }
+
+    /* ============================================================
+       채널 입력 박스
+    ============================================================ */
+    .channel-box {
+      background: #f8fafc;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+    }
+    .channel-box label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .channel-box input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      outline: none;
+    }
+    .channel-box input::placeholder {
+      color: #cbd5e1;
+      font-weight: 400;
+    }
+    .channel-hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    /* ============================================================
+       모드 선택 버튼 (학생 / 교무실)
+    ============================================================ */
+    .mode-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .mode-btn {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 22px 24px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: 'Noto Sans KR', sans-serif;
+      text-align: left;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .mode-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .mode-btn:active { transform: scale(0.98); }
+
+    .mode-btn.student { background: var(--student-color); color: white; }
+    .mode-btn.teacher { background: var(--teacher-color); color: white; }
+
+    .mode-btn-icon { font-size: 2.2rem; flex-shrink: 0; }
+    .mode-btn-text strong {
+      display: block;
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .mode-btn-text span {
+      font-size: 0.82rem;
+      opacity: 0.85;
+    }
+
+    /* ============================================================
+       뒤로가기 버튼 & 상단 바
+    ============================================================ */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .back-btn {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .back-btn:hover { background: var(--border); }
+
+    .page-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* ============================================================
+       상태 표시줄 (연결됨 / 끊김 / 대기 중)
+    ============================================================ */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .status-bar .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-bar.connected    { background: #dcfce7; color: #15803d; }
+    .status-bar.connected .dot { background: #15803d; animation: pulse 1.5s infinite; }
+    .status-bar.disconnected { background: #fee2e2; color: #dc2626; }
+    .status-bar.disconnected .dot { background: #dc2626; }
+    .status-bar.waiting      { background: #fef9c3; color: #a16207; }
+    .status-bar.waiting .dot { background: #a16207; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    /* ============================================================
+       호출 버튼 (학생 모드의 핵심)
+    ============================================================ */
+    .call-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 52px 24px;      /* 크게! */
+      border: none;
+      border-radius: var(--radius);
+      background: var(--danger-color);
+      color: white;
+      cursor: pointer;
+      font-family: 'Noto Sans KR', sans-serif;
+      margin-bottom: 20px;
+      transition: transform 0.1s, box-shadow 0.1s;
+      box-shadow: 0 4px 24px rgba(220, 38, 38, 0.35);
+    }
+    .call-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(220, 38, 38, 0.45);
+    }
+    .call-btn:active:not(:disabled) { transform: scale(0.97); }
+    .call-btn:disabled {
+      background: #94a3b8;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+    .call-btn-icon { font-size: 3rem; }
+    .call-btn-text { font-size: 1.6rem; font-weight: 900; letter-spacing: -0.5px; }
+    .call-btn-sub  { font-size: 0.88rem; opacity: 0.85; }
+
+    /* ============================================================
+       호출 기록 (학생 모드)
+    ============================================================ */
+    .history-header {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .history-item {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* ============================================================
+       교무실 알림 카드
+    ============================================================ */
+    .notification-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    .notif-empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .notif-empty .notif-empty-icon { font-size: 3rem; display: block; margin-bottom: 12px; opacity: 0.4; }
+
+    .notif-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--danger-color);
+      border-radius: 12px;
+      padding: 16px 18px;
+      animation: slideIn 0.3s ease;
+    }
+    .notif-card.new {
+      background: #fff5f5;
+      border-color: var(--danger-color);
+      border-left-color: var(--danger-color);
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .notif-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .notif-title { font-size: 1rem; font-weight: 700; color: var(--danger-color); }
+    .notif-time  { font-size: 0.8rem; color: var(--muted); }
+    .notif-msg   { font-size: 0.9rem; color: var(--text); }
+
+    /* ============================================================
+       사용 방법 안내 (접이식)
+    ============================================================ */
+    .guide-toggle {
+      background: none;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      width: 100%;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 0.85rem;
+      color: var(--muted);
+      cursor: pointer;
+      margin-top: 16px;
+      text-align: left;
+    }
+    .guide-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 8px;
+      font-size: 0.83rem;
+      color: var(--text);
+      line-height: 1.8;
+    }
+    .guide-box ol { padding-left: 18px; }
+    .guide-box li { margin-bottom: 6px; }
+    .guide-box code {
+      background: #e2e8f0;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+  </style>
+
+</head>
+
+<body>
+
+<!-- ============================================================
+     화면 1: 모드 선택 화면
+     - 처음 시작할 때 보이는 화면입니다
+     - 학생/교무실 중 하나를 선택합니다
+============================================================ -->
+
+<div id="screen-select" class="screen active">
+  <div class="card">
+
+```
+<!-- 헤더 -->
+<div class="header">
+  <span class="header-icon">📢</span>
+  <h1>교무실 호출 시스템</h1>
+  <p>버튼을 누르면 교무실에 즉시 알림이 전송됩니다</p>
+</div>
+
+<!-- 채널 이름 입력 -->
+<!-- 채널 이름은 두 기기에서 동일해야 연결됩니다 -->
+<div class="channel-box">
+  <label>채널 이름 (두 기기에서 동일하게 입력)</label>
+  <input
+    type="text"
+    id="topicInput"
+    placeholder="예: myschool-3-1-room"
+    value="myschool-room"
+  />
+  <p class="channel-hint">
+    ⚠️ 채널 이름이 같은 사람끼리 연결됩니다.<br>
+    추측하기 어려운 이름으로 변경하세요. (예: <code>school-302-x7k9</code>)
+  </p>
+</div>
+
+<!-- 모드 선택 버튼 -->
+<div class="mode-buttons">
+  <button class="mode-btn student" onclick="enterMode('student')">
+    <span class="mode-btn-icon">🙋</span>
+    <span class="mode-btn-text">
+      <strong>학생 모드</strong>
+      <span>교무실 밖에서 — 버튼을 눌러 선생님을 호출</span>
+    </span>
+  </button>
+
+  <button class="mode-btn teacher" onclick="enterMode('teacher')">
+    <span class="mode-btn-icon">👨‍🏫</span>
+    <span class="mode-btn-text">
+      <strong>교무실 모드</strong>
+      <span>교무실 안에서 — 호출 알림을 수신</span>
+    </span>
+  </button>
+</div>
+
+<!-- 사용 방법 안내 (접이식) -->
+<button class="guide-toggle" onclick="toggleGuide()">📖 사용 방법 보기 ▾</button>
+<div class="guide-box" id="guideBox" style="display:none;">
+  <ol>
+    <li>
+      <strong>채널 이름 설정</strong><br>
+      두 기기에서 <em>똑같은 채널 이름</em>을 입력합니다.<br>
+      보안을 위해 추측하기 어려운 고유한 이름을 사용하세요.
+    </li>
+    <li>
+      <strong>교무실 기기</strong> → <code>교무실 모드</code> 선택<br>
+      연결이 완료되면 녹색 "연결됨" 표시가 뜹니다.
+    </li>
+    <li>
+      <strong>학생 기기</strong> → <code>학생 모드</code> 선택<br>
+      빨간 버튼을 누르면 교무실 화면에 즉시 알림이 표시됩니다.
+    </li>
+    <li>
+      인터넷만 있으면 됩니다. 같은 와이파이가 아니어도 OK.
+    </li>
+  </ol>
+</div>
+```
+
+  </div>
+</div>
+
+<!-- ============================================================
+     화면 2: 학생 모드
+     - 큰 호출 버튼 + 호출 기록
+============================================================ -->
+
+<div id="screen-student" class="screen">
+
+  <!-- 상단 바 -->
+
+  <div class="top-bar">
+    <button class="back-btn" onclick="goBack()">← 뒤로</button>
+    <span class="page-title">🙋 학생 모드</span>
+  </div>
+
+  <!-- 상태 표시 -->
+
+  <!-- 이 div의 클래스가 connected/disconnected/waiting으로 바뀌며 색이 변합니다 -->
+
+  <div id="studentStatus" class="status-bar waiting">
+    <span class="dot"></span>
+    <span id="studentStatusText">준비 중...</span>
+  </div>
+
+  <!-- ★ 핵심: 호출 버튼 ★ -->
+
+  <button id="callBtn" class="call-btn" onclick="sendCall()">
+    <span class="call-btn-icon">📣</span>
+    <span class="call-btn-text">선생님 호출하기</span>
+    <span class="call-btn-sub">버튼을 누르면 교무실에 즉시 전달됩니다</span>
+  </button>
+
+  <!-- 호출 기록 -->
+
+  <div class="card">
+    <div class="history-header">호출 기록</div>
+    <div class="history-list" id="historyList">
+      <div style="color:#94a3b8; font-size:0.85rem; text-align:center; padding: 16px 0;">
+        아직 호출 기록이 없습니다
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     화면 3: 교무실 모드
+     - 실시간 알림 수신 + 소리 재생
+============================================================ -->
+
+<div id="screen-teacher" class="screen">
+
+  <!-- 상단 바 -->
+
+  <div class="top-bar">
+    <button class="back-btn" onclick="goBack()">← 뒤로</button>
+    <span class="page-title">👨‍🏫 교무실 모드</span>
+  </div>
+
+  <!-- 연결 상태 표시 -->
+
+  <div id="teacherStatus" class="status-bar waiting">
+    <span class="dot"></span>
+    <span id="teacherStatusText">연결 중...</span>
+  </div>
+
+  <!-- 알림 목록 -->
+
+  <div class="card">
+    <div class="history-header" style="margin-bottom:14px;">수신된 호출</div>
+    <div class="notification-list" id="notificationList">
+      <!-- 초기 상태: 대기 중 메시지 -->
+      <div class="notif-empty">
+        <span class="notif-empty-icon">🔕</span>
+        호출 대기 중입니다<br>
+        <small>학생이 버튼을 누르면 여기에 표시됩니다</small>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// 전역 변수
+// ============================================================
+let currentMode = '';      // 현재 모드: 'student' 또는 'teacher'
+let topic = '';            // 채널 이름 (두 기기에서 동일해야 함)
+let eventSource = null;    // SSE 연결 객체 (교무실 모드에서 사용)
+let callCount = 0;         // 이번 세션의 호출 횟수
+let guideVisible = false;  // 사용 방법 안내 표시 여부
+
+
+// ============================================================
+// 사용 방법 안내 토글
+// ============================================================
+function toggleGuide() {
+  guideVisible = !guideVisible;
+  document.getElementById('guideBox').style.display = guideVisible ? 'block' : 'none';
+}
+
+
+// ============================================================
+// 화면 전환: 모드 진입
+// - mode: 'student' 또는 'teacher'
+// ============================================================
+function enterMode(mode) {
+  // 채널 이름 가져오기
+  topic = document.getElementById('topicInput').value.trim();
+
+  // 채널 이름이 비어있으면 경고
+  if (!topic) {
+    alert('채널 이름을 입력해주세요!\n\n두 기기에서 동일한 이름을 사용해야 합니다.');
+    return;
+  }
+
+  currentMode = mode;
+
+  // 모든 화면 숨기기
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+
+  // 선택한 화면만 보이기
+  document.getElementById('screen-' + mode).classList.add('active');
+
+  // 모드별 초기화 함수 호출
+  if (mode === 'student') {
+    initStudentMode();
+  } else {
+    initTeacherMode();
+  }
+}
+
+
+// ============================================================
+// 뒤로가기: 모드 선택 화면으로 돌아가기
+// ============================================================
+function goBack() {
+  // 교무실 모드라면 실시간 연결(SSE) 끊기
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+
+  // 모든 화면 숨기고, 선택 화면만 보이기
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-select').classList.add('active');
+
+  currentMode = '';
+}
+
+
+// ============================================================
+// 학생 모드 초기화
+// ============================================================
+function initStudentMode() {
+  setStatus('studentStatus', 'connected', `✅ 준비 완료 — 채널: ${topic}`);
+}
+
+
+// ============================================================
+// 학생 모드: 호출 버튼 클릭
+// - ntfy.sh에 POST 요청으로 메시지를 전송합니다
+// ============================================================
+async function sendCall() {
+  const btn = document.getElementById('callBtn');
+
+  // --- 전송 시작: 버튼 비활성화 ---
+  btn.disabled = true;
+  btn.querySelector('.call-btn-text').textContent = '전송 중...';
+  btn.querySelector('.call-btn-icon').textContent = '📡';
+  setStatus('studentStatus', 'waiting', '호출 신호 전송 중...');
+
+  // 현재 시간 문자열 만들기
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ko-KR', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+  const message = `교무실 앞에서 호출합니다 (${timeStr})`;
+
+  try {
+    // -------------------------------------------------------
+    // ntfy.sh 서버에 메시지 전송 (POST 요청)
+    //
+    // ntfy.sh는 무료 알림 중계 서비스입니다.
+    // - URL: https://ntfy.sh/[채널이름]
+    // - 메시지를 보내면 같은 채널을 구독 중인 기기에 즉시 전달
+    // - 무료, 계정 불필요, 가입 불필요
+    // -------------------------------------------------------
+    const response = await fetch(`https://ntfy.sh/${topic}`, {
+      method: 'POST',
+      body: message,
+      headers: {
+        'Title': '🔔 교무실 호출',    // 알림 제목
+        'Priority': 'high',           // 높은 우선순위
+        'Tags': 'bell',               // 태그 (벨 이모지)
+      }
+    });
+
+    if (!response.ok) {
+      // HTTP 오류 상태 (400, 500 등)
+      throw new Error(`서버 오류: ${response.status}`);
+    }
+
+    // --- 전송 성공 ---
+    setStatus('studentStatus', 'connected', `✅ 호출 전송 완료! (${timeStr})`);
+    btn.querySelector('.call-btn-icon').textContent = '✅';
+    btn.querySelector('.call-btn-text').textContent = '호출 완료!';
+
+    // 호출 기록 추가
+    addHistoryItem(timeStr);
+
+    // 3초 후 버튼 원래 상태로 복구
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.querySelector('.call-btn-icon').textContent = '📣';
+      btn.querySelector('.call-btn-text').textContent = '선생님 호출하기';
+      setStatus('studentStatus', 'connected', `✅ 준비 완료 — 채널: ${topic}`);
+    }, 3000);
+
+  } catch (error) {
+    // --- 전송 실패 (네트워크 오류 등) ---
+    console.error('전송 실패:', error);
+    setStatus('studentStatus', 'disconnected', '❌ 전송 실패. 인터넷 연결을 확인해주세요.');
+    btn.disabled = false;
+    btn.querySelector('.call-btn-icon').textContent = '📣';
+    btn.querySelector('.call-btn-text').textContent = '다시 호출하기';
+  }
+}
+
+
+// 호출 기록을 목록에 추가하는 함수
+function addHistoryItem(timeStr) {
+  callCount++;
+  const list = document.getElementById('historyList');
+
+  // 처음 기록이라면 "없습니다" 텍스트 제거
+  const empty = list.querySelector('div');
+  if (empty && empty.textContent.includes('없습니다')) empty.remove();
+
+  // 새 기록 아이템 생성
+  const item = document.createElement('div');
+  item.className = 'history-item';
+  item.innerHTML = `
+    <span>📋 ${callCount}번째 호출</span>
+    <span>${timeStr}</span>
+  `;
+
+  // 맨 위에 추가 (최신 기록이 위에 오도록)
+  list.insertBefore(item, list.firstChild);
+}
+
+
+// ============================================================
+// 교무실 모드 초기화: SSE로 실시간 수신 시작
+// ============================================================
+function initTeacherMode() {
+  setStatus('teacherStatus', 'waiting', '연결 중...');
+
+  // -------------------------------------------------------
+  // SSE (Server-Sent Events): 서버 → 브라우저 실시간 전송
+  //
+  // ntfy.sh/[채널]/sse 에 연결하면:
+  // - 서버와 지속적인 연결을 유지합니다
+  // - 학생이 메시지를 보내면 즉시 이 연결로 데이터가 옵니다
+  // - HTTP 연결이므로 방화벽도 잘 통과합니다
+  // - 연결이 끊기면 브라우저가 자동으로 재연결을 시도합니다
+  // -------------------------------------------------------
+  eventSource = new EventSource(`https://ntfy.sh/${topic}/sse`);
+
+  // 연결 성공 이벤트
+  eventSource.onopen = function () {
+    setStatus('teacherStatus', 'connected', `✅ 연결됨 — 채널: ${topic}`);
+  };
+
+  // 메시지 수신 이벤트 (학생이 버튼을 눌렀을 때)
+  eventSource.onmessage = function (event) {
+    try {
+      // ntfy.sh는 JSON 형식으로 데이터를 보냅니다
+      // 예시: { "event": "message", "message": "교무실 앞에서 호출합니다..." }
+      const data = JSON.parse(event.data);
+
+      // 'message' 타입만 처리합니다
+      // ('open' 이벤트 등 연결 관련 메시지는 무시)
+      if (data.event === 'message') {
+        showNotification(data.message || '호출이 왔습니다!');
+      }
+    } catch (e) {
+      // JSON 파싱 실패는 조용히 무시
+    }
+  };
+
+  // 연결 오류 이벤트 (인터넷 끊김, 서버 오류 등)
+  eventSource.onerror = function () {
+    // EventSource는 자동으로 재연결을 시도합니다
+    setStatus('teacherStatus', 'disconnected', '🔴 연결 끊김 — 자동 재연결 중...');
+  };
+}
+
+
+// ============================================================
+// 교무실 모드: 알림 카드 표시 + 소리 재생
+// ============================================================
+function showNotification(message) {
+  const list = document.getElementById('notificationList');
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ko-KR', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+
+  // 처음 알림이라면 "대기 중" 메시지 제거
+  const empty = list.querySelector('.notif-empty');
+  if (empty) empty.remove();
+
+  // 새 알림 카드 생성
+  const card = document.createElement('div');
+  card.className = 'notif-card new';
+  card.innerHTML = `
+    <div class="notif-top">
+      <span class="notif-title">🔔 호출!</span>
+      <span class="notif-time">${timeStr}</span>
+    </div>
+    <div class="notif-msg">${escapeHtml(message)}</div>
+  `;
+
+  // 맨 위에 추가 (최신이 위에)
+  list.insertBefore(card, list.firstChild);
+
+  // 3초 후 'new' 강조 표시 제거
+  setTimeout(() => card.classList.remove('new'), 3000);
+
+  // 🔊 알림 소리 재생
+  playAlertSound();
+
+  // 브라우저 탭 제목에도 알림 표시
+  document.title = '🔔 호출 알림!';
+  setTimeout(() => { document.title = '교무실 호출 시스템'; }, 4000);
+}
+
+
+// HTML 특수문자 이스케이프 (XSS 방지)
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML;
+}
+
+
+// ============================================================
+// 알림 소리 재생 (Web Audio API)
+//
+// Web Audio API: 브라우저 내장 소리 생성 엔진
+// - 외부 파일 없이 수학적으로 소리를 합성합니다
+// - 인터넷 없이도 동작합니다
+// ============================================================
+function playAlertSound() {
+  try {
+    // AudioContext: 오디오 처리의 기본 단위
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // "딩~동~" 소리를 두 음으로 만들기
+    playTone(audioCtx, 880, 0.0,  0.35);   // 첫 번째 음: 높은 A (880Hz), 즉시 시작
+    playTone(audioCtx, 660, 0.4,  0.5);    // 두 번째 음: 높은 E (660Hz), 0.4초 후 시작
+  } catch (e) {
+    // 소리 재생 실패 시 조용히 무시 (기능에 지장 없음)
+    console.warn('소리 재생 실패 (정상 작동에는 영향 없음):', e);
+  }
+}
+
+// 단일 음 재생 함수
+// - audioCtx:  AudioContext 객체
+// - frequency: 음 높이 (Hz). 높을수록 높은 음
+// - delay:     재생 시작까지의 지연 시간 (초)
+// - duration:  음의 길이 (초)
+function playTone(audioCtx, frequency, delay, duration) {
+  // Oscillator: 특정 주파수의 파동을 생성하는 소리 발생기
+  const oscillator = audioCtx.createOscillator();
+
+  // GainNode: 볼륨을 조절하는 모듈
+  const gainNode = audioCtx.createGain();
+
+  // 신호 흐름: 소리 발생기 → 볼륨 조절기 → 스피커(출력)
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  oscillator.type = 'sine';            // 사인파: 부드럽고 깨끗한 소리
+  oscillator.frequency.value = frequency;
+
+  const startTime = audioCtx.currentTime + delay;
+
+  // 볼륨 곡선: 처음엔 크게(0.5), 끝날수록 서서히 작아짐(0.001)
+  // → 자연스러운 "딩~" 소리 표현
+  gainNode.gain.setValueAtTime(0.5, startTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+  oscillator.start(startTime);
+  oscillator.stop(startTime + duration);
+}
+
+
+// ============================================================
+// 상태 표시줄 업데이트 헬퍼 함수
+// - elementId: 상태 표시줄 div의 id
+// - type:      'connected' / 'disconnected' / 'waiting'
+// - text:      표시할 메시지
+// ============================================================
+function setStatus(elementId, type, text) {
+  const el = document.getElementById(elementId);
+  const textEl = document.getElementById(elementId + 'Text');
+  el.className = `status-bar ${type}`;
+  if (textEl) textEl.textContent = text;
+}
+</script>
+
+</body>
+</html>
