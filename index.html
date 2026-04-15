@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 
 <html lang="ko">
@@ -626,11 +627,14 @@ function initStudentMode() {
 // 학생 모드: 호출 버튼 클릭
 // - ntfy.sh에 POST 요청으로 메시지를 전송합니다
 // ============================================================
+
 function sendCall() {
   const btn = document.getElementById('callBtn');
 
   btn.disabled = true;
   btn.querySelector('.call-btn-text').textContent = '전송 중...';
+  btn.querySelector('.call-btn-icon').textContent = '📡';
+  setStatus('studentStatus', 'waiting', '호출 신호 전송 중...');
 
   const now = new Date();
   const timeStr = now.toLocaleTimeString('ko-KR', {
@@ -639,25 +643,28 @@ function sendCall() {
 
   const message = `교무실 앞에서 호출합니다 (${timeStr})`;
 
-  fetch(`https://ntfy.sh/${topic}`, {
-    method: 'POST',
-    body: message,
-    headers: {
-      'Content-Type': 'text/plain'
-    }
-  }).then(function() {
-    addHistoryItem(timeStr);
-    btn.querySelector('.call-btn-text').textContent = '호출 완료!';
-    setTimeout(function() {
-      btn.disabled = false;
-      btn.querySelector('.call-btn-text').textContent = '선생님 호출하기';
-    }, 3000);
-  }).catch(function() {
-    btn.disabled = false;
-    btn.querySelector('.call-btn-text').textContent = '선생님 호출하기';
-  });
-}
+  // 🔥 핵심: form 방식 전송
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = `https://ntfy.sh/${topic}`;
 
+  const input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = 'message';
+  input.value = message;
+
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.querySelector('.call-btn-icon').textContent = '📣';
+    btn.querySelector('.call-btn-text').textContent = '선생님 호출하기';
+    setStatus('studentStatus', 'connected', `✅ 호출 전송 완료! (${timeStr})`);
+    addHistoryItem(timeStr);
+  }, 1000);
+}
 
 // 호출 기록을 목록에 추가하는 함수
 function addHistoryItem(timeStr) {
@@ -704,12 +711,21 @@ function initTeacherMode() {
   };
 
   // 메시지 수신 이벤트 (학생이 버튼을 눌렀을 때)
-  eventSource.addEventListener('message', function (event) {
+  eventSource.onmessage = function (event) {
     try {
+      // ntfy.sh는 JSON 형식으로 데이터를 보냅니다
+      // 예시: { "event": "message", "message": "교무실 앞에서 호출합니다..." }
       const data = JSON.parse(event.data);
-      showNotification(data.message || '호출이 왔습니다!');
-    } catch (e) {}
-  });
+
+      // 'message' 타입만 처리합니다
+      // ('open' 이벤트 등 연결 관련 메시지는 무시)
+      if (data.event === 'message') {
+        showNotification(data.message || '호출이 왔습니다!');
+      }
+    } catch (e) {
+      // JSON 파싱 실패는 조용히 무시
+    }
+  };
 
   // 연결 오류 이벤트 (인터넷 끊김, 서버 오류 등)
   eventSource.onerror = function () {
