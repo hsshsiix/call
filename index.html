@@ -631,8 +631,6 @@ function sendCall() {
 
   btn.disabled = true;
   btn.querySelector('.call-btn-text').textContent = '전송 중...';
-  btn.querySelector('.call-btn-icon').textContent = '📡';
-  setStatus('studentStatus', 'waiting', '호출 신호 전송 중...');
 
   const now = new Date();
   const timeStr = now.toLocaleTimeString('ko-KR', {
@@ -641,26 +639,18 @@ function sendCall() {
 
   const message = `교무실 앞에서 호출합니다 (${timeStr})`;
 
-  // 🔥 핵심: form 방식 전송
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = `https://ntfy.sh/${topic}`;
-
-  const input = document.createElement('input');
-  input.type = 'hidden';
-  input.name = 'message';
-  input.value = message;
-
-  form.appendChild(input);
-  document.body.appendChild(form);
-  form.submit();
+  // ✅ 핵심: fetch 사용 (페이지 이동 없음)
+  fetch(`https://ntfy.sh/${topic}`, {
+    method: 'POST',
+    body: message,
+    headers: {
+      "Content-Type": "text/plain"
+    }
+  });
 
   setTimeout(() => {
     btn.disabled = false;
-    btn.querySelector('.call-btn-icon').textContent = '📣';
     btn.querySelector('.call-btn-text').textContent = '선생님 호출하기';
-    setStatus('studentStatus', 'connected', `✅ 호출 전송 완료! (${timeStr})`);
-    addHistoryItem(timeStr);
   }, 1000);
 }
 
